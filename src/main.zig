@@ -11,12 +11,15 @@ pub fn main() !void {
 
         // Process the command...
         var iter = std.mem.splitScalar(u8, user_input, ' ');
-        if (iter.next()) |command| {
-            if (std.mem.eql(u8, command, "exit")) {
-                const exit_code = try std.fmt.parseInt(u8, iter.next() orelse "0", 10);
-                std.process.exit(exit_code);
-                break;
-            }
+        const command = iter.first();
+        if (std.mem.eql(u8, command, "exit")) {
+            _ = iter.next();
+            const exit_code = try std.fmt.parseInt(u8, iter.next() orelse "0", 10);
+            std.process.exit(exit_code);
+            break;
+        } else if (std.mem.eql(u8, command, "echo")) {
+            try stdout.print("{s}\n", .{iter.rest()});
+            continue;
         }
 
         const stderr = std.io.getStdErr().writer();
