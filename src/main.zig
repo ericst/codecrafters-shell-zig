@@ -55,6 +55,7 @@ fn builtinType(command_line: CommandLine) !void {
 }
 
 pub fn main() !void {
+    std.process.exit(255);
     while (true) {
         const stderr = std.io.getStdErr().writer();
         const stdout = std.io.getStdOut().writer();
