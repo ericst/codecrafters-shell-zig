@@ -11,6 +11,8 @@ pub const Evaluator = struct {
     allocator: std.mem.Allocator,
     stdout: Writer,
     stderr: Writer,
+    path: std.ArrayList([]const u8),
+    full_path: std.ArrayList(u8),
 
     pub fn init(allocator: std.mem.Allocator, stdout: Writer, stderr: Writer) Evaluator {
         var result = Evaluator{
@@ -18,10 +20,17 @@ pub const Evaluator = struct {
             .allocator = allocator,
             .stdout = stdout,
             .stderr = stderr,
+            .path = std.ArrayList([]const u8).init(allocator),
+            .full_path = std.ArrayList(u8).init(allocator),
         };
 
+        // Populate the Builtins
         result.registerBuiltins() catch {
             @panic("Couldn't register the builtins...");
+        };
+
+        result.loadPath() catch {
+            @panic("Problem loading the path");
         };
 
         return result;
@@ -29,14 +38,8 @@ pub const Evaluator = struct {
 
     pub fn deinit(self: *Evaluator) void {
         self.builtins.deinit();
-    }
-
-    // Register our builtin commands
-    pub fn registerBuiltins(self: *Evaluator) !void {
-        try self.builtins.put("exit", exit);
-        try self.builtins.put("echo", echo);
-        try self.builtins.put("type", typeBuiltin);
-        // Add more builtins here
+        self.path.deinit();
+        self.full_path.deinit();
     }
 
     pub fn evaluate(self: *Evaluator, tokens: Tokens) !void {
@@ -53,8 +56,50 @@ pub const Evaluator = struct {
         }
     }
 
-    // Builtins implementations
+    fn registerBuiltins(self: *Evaluator) !void {
+        try self.builtins.put("exit", exit);
+        try self.builtins.put("echo", echo);
+        try self.builtins.put("type", typeBuiltin);
+        // Add more builtins here
+    }
 
+    fn loadPath(self: *Evaluator) !void {
+        if (std.posix.getenv("PATH")) |raw_path| {
+            var iter = std.mem.splitScalar(u8, raw_path, ':');
+            while (iter.next()) |dir| {
+                try self.path.append(dir);
+            }
+        }
+    }
+
+    fn getCommandPath(self: *Evaluator, command: []const u8) ?[]const u8 {
+        for (self.path.items) |dir| {
+            self.full_path.clearRetainingCapacity();
+
+            self.full_path.appendSlice(dir) catch continue;
+            self.full_path.append('/') catch continue;
+            self.full_path.appendSlice(command) catch continue;
+
+            const file = std.fs.openFileAbsolute(self.full_path.items, .{ .mode = .read_only }) catch {
+                continue;
+            };
+            defer file.close();
+
+            const mode = file.mode() catch {
+                continue;
+            };
+
+            const is_executable = mode & 0b001 != 0;
+
+            if (is_executable) {
+                return self.full_path.items;
+            }
+        }
+
+        return null;
+    }
+
+    // Builtins implementations
     fn exit(self: *Evaluator, tokens: Tokens) !void {
         if (tokens.items.len <= 1) {
             std.process.exit(0);
@@ -86,8 +131,8 @@ pub const Evaluator = struct {
 
             if (self.builtins.get(parameter)) |_| {
                 try self.stdout.print("{s} is a shell builtin\n", .{parameter});
-            } else {
-                try self.stdout.print("{s}: not found\n", .{parameter});
+            } else if (self.getCommandPath(parameter)) |path| {
+                try self.stdout.print("{s} is {s}\n", .{ parameter, path });
             }
         }
     }
