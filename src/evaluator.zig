@@ -133,6 +133,8 @@ pub const Evaluator = struct {
                 try self.stdout.print("{s} is a shell builtin\n", .{parameter});
             } else if (self.getCommandPath(parameter)) |path| {
                 try self.stdout.print("{s} is {s}\n", .{ parameter, path });
+            } else {
+                try self.stdout.print("{s}: not found\n", .{parameter});
             }
         }
     }
