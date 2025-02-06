@@ -59,13 +59,8 @@ pub const Evaluator = struct {
 
             var child = std.process.Child.init(argv.items, self.allocator);
 
-            child.spawn() catch |err| {
-                try self.stderr.print("error: {s}\n", .{@errorName(err)});
-            };
-
-            _ = child.wait() catch |err| {
-                try self.stderr.print("error: {s}\n", .{@errorName(err)});
-            };
+            try child.spawn();
+            _ = try child.wait();
         } else {
             try self.stderr.print("{s}: command not found\n", .{cmd});
         }
@@ -172,12 +167,21 @@ pub const Evaluator = struct {
             try self.stderr.print("error: cd takes exactly 1 argument", .{});
         }
 
-        const dir = tokens.items[1].lexeme;
+        var dir = tokens.items[1].lexeme;
+
+        if (dir.len == 1 and dir[0] == '~') {
+            if (std.posix.getenv("HOME")) |value| {
+                dir = value;
+            } else {
+                try self.stderr.print("error: couldn't find the HOME variable.", .{});
+                return;
+            }
+        }
 
         std.posix.chdir(dir) catch |err| {
             switch (err) {
                 error.FileNotFound => try self.stderr.print("cd: {s}: No such file or directory\n", .{dir}),
-                else => try self.stderr.print("error: {s}\n", .{@errorName(err)}),
+                else => return err,
             }
         };
     }

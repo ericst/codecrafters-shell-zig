@@ -28,6 +28,8 @@ pub fn main() !void {
 
         const tokens = try tokenizer.tokenize(user_input);
 
-        try eval.evaluate(tokens);
+        eval.evaluate(tokens) catch |err| {
+            try stderr.print("error: {s}\n", .{@errorName(err)});
+        };
     }
 }
