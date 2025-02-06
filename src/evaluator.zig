@@ -172,8 +172,13 @@ pub const Evaluator = struct {
             try self.stderr.print("error: cd takes exactly 1 argument", .{});
         }
 
-        std.posix.chdir(tokens.items[1].lexeme) catch |err| {
-            try self.stderr.print("error: {s}\n", .{@errorName(err)});
+        const dir = tokens.items[1].lexeme;
+
+        std.posix.chdir(dir) catch |err| {
+            switch (err) {
+                error.FileNotFound => try self.stderr.print("cd: {s}: No such file or directory\n", .{dir}),
+                else => try self.stderr.print("error: {s}\n", .{@errorName(err)}),
+            }
         };
     }
 };
