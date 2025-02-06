@@ -60,11 +60,11 @@ pub const Evaluator = struct {
             var child = std.process.Child.init(argv.items, self.allocator);
 
             child.spawn() catch |err| {
-                try self.stderr.print("error: {s}", .{@errorName(err)});
+                try self.stderr.print("error: {s}\n", .{@errorName(err)});
             };
 
             _ = child.wait() catch |err| {
-                try self.stderr.print("error: {s}", .{@errorName(err)});
+                try self.stderr.print("error: {s}\n", .{@errorName(err)});
             };
         } else {
             try self.stderr.print("{s}: command not found\n", .{cmd});
@@ -76,6 +76,7 @@ pub const Evaluator = struct {
         try self.builtins.put("echo", echo);
         try self.builtins.put("type", typeBuiltin);
         try self.builtins.put("pwd", pwd);
+        try self.builtins.put("cd", cd);
     }
 
     fn loadPath(self: *Evaluator) !void {
@@ -164,5 +165,15 @@ pub const Evaluator = struct {
         const wd = try std.posix.getcwd(&buffer);
 
         try self.stdout.print("{s}\n", .{wd});
+    }
+
+    fn cd(self: *Evaluator, tokens: Tokens) !void {
+        if (tokens.items.len != 2) {
+            try self.stderr.print("error: cd takes exactly 1 argument", .{});
+        }
+
+        std.posix.chdir(tokens.items[1].lexeme) catch |err| {
+            try self.stderr.print("error: {s}\n", .{@errorName(err)});
+        };
     }
 };
