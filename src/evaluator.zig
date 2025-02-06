@@ -75,7 +75,7 @@ pub const Evaluator = struct {
         try self.builtins.put("exit", exit);
         try self.builtins.put("echo", echo);
         try self.builtins.put("type", typeBuiltin);
-        // Add more builtins here
+        try self.builtins.put("pwd", pwd);
     }
 
     fn loadPath(self: *Evaluator) !void {
@@ -152,5 +152,17 @@ pub const Evaluator = struct {
                 try self.stdout.print("{s}: not found\n", .{parameter});
             }
         }
+    }
+
+    fn pwd(self: *Evaluator, tokens: Tokens) !void {
+        if (tokens.items.len > 1) {
+            try self.stderr.print("error: pwd takes no arguments", .{});
+        }
+
+        var buffer: [1024]u8 = undefined;
+
+        const wd = try std.posix.getcwd(&buffer);
+
+        try self.stdout.print("{s}\n", .{wd});
     }
 };
