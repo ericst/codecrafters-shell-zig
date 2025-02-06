@@ -51,6 +51,21 @@ pub const Evaluator = struct {
         // Look up in builtins
         if (self.builtins.get(cmd)) |builtin| {
             try builtin(self, tokens);
+        } else if (self.getCommandPath(cmd)) |_| {
+            var argv = std.ArrayList([]const u8).init(self.allocator);
+            for (tokens.items) |item| {
+                try argv.append(item.lexeme);
+            }
+
+            var child = std.process.Child.init(argv.items, self.allocator);
+
+            child.spawn() catch |err| {
+                try self.stderr.print("error: {s}", .{@errorName(err)});
+            };
+
+            _ = child.wait() catch |err| {
+                try self.stderr.print("error: {s}", .{@errorName(err)});
+            };
         } else {
             try self.stderr.print("{s}: command not found\n", .{cmd});
         }
